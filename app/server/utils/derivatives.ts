@@ -38,61 +38,54 @@ export function resolveMimeType(format: DerivativeFormat): string {
 
 export function filterDerivatives(children: ApsManifestChild[], formats?: DerivativeFormat[]): Derivative[] {
   const result: Derivative[] = []
+  const seenUrns = new Set<string>()
 
-  for (const child of children) {
-    // Check for pdf-page sub-children (existing pattern)
-    const pdfChild = child.children?.find(c => c.role === 'pdf-page')
-    if (pdfChild) {
-      const format: DerivativeFormat = 'pdf'
-      if (formats && !formats.includes(format)) continue
-      result.push({
-        guid: pdfChild.guid,
-        name: child.name || pdfChild.urn?.split('/').pop() || pdfChild.name,
-        urn: pdfChild.urn || '',
-        format,
-        mimeType: resolveMimeType(format),
-        viewSets: normalizeViewSets(child.ViewSets),
-        active: true
-      })
-      continue
-    }
+  const push = (derivative: Derivative) => {
+    if (formats && !formats.includes(derivative.format)) return
+    if (derivative.urn && seenUrns.has(derivative.urn)) return
+    if (derivative.urn) seenUrns.add(derivative.urn)
+    result.push(derivative)
+  }
 
-    // Check the child itself for other derivative types
-    if (child.urn) {
-      const format = resolveFormat(child)
-      if (format === 'pdf') continue // PDFs are handled via pdf-page children above
-      if (formats && !formats.includes(format)) continue
-      result.push({
-        guid: child.guid,
-        name: child.urn.split('/').pop() || child.name,
-        urn: child.urn,
-        format,
-        mimeType: resolveMimeType(format),
-        viewSets: normalizeViewSets(child.ViewSets),
-        active: false // Only PDFs are active by default (handled above)
-      })
-    }
+  // Walk the full tree: newer Revit manifests nest sheets and views under
+  // folder nodes (e.g. "Sheets" > sheet geometry > pdf-page) at arbitrary depth.
+  // ViewSets live on geometry nodes, so resources inherit the nearest ancestor's.
+  const walk = (nodes: ApsManifestChild[], inheritedViewSets: string[]) => {
+    for (const node of nodes) {
+      const viewSets = node.ViewSets !== undefined ? normalizeViewSets(node.ViewSets) : inheritedViewSets
 
-    // Recurse into children for nested derivatives (non-pdf-page)
-    if (child.children) {
-      for (const sub of child.children) {
-        if (sub.role === 'pdf-page') continue // Already handled
-        if (!sub.urn) continue
-        const format = resolveFormat(sub)
-        if (formats && !formats.includes(format)) continue
-        result.push({
-          guid: sub.guid,
-          name: sub.urn.split('/').pop() || sub.name,
-          urn: sub.urn,
+      const pdfChild = node.children?.find(c => c.role === 'pdf-page')
+      if (pdfChild) {
+        push({
+          guid: pdfChild.guid,
+          name: node.name || pdfChild.urn?.split('/').pop() || pdfChild.name,
+          urn: pdfChild.urn || '',
+          format: 'pdf',
+          mimeType: resolveMimeType('pdf'),
+          viewSets,
+          active: true
+        })
+        continue
+      }
+
+      if (node.urn) {
+        const format = resolveFormat(node)
+        push({
+          guid: node.guid,
+          name: node.urn.split('/').pop() || node.name,
+          urn: node.urn,
           format,
           mimeType: resolveMimeType(format),
-          viewSets: normalizeViewSets(child.ViewSets),
-          active: format === 'pdf'
+          viewSets,
+          active: format === 'pdf' // Only PDFs are active by default
         })
       }
+
+      if (node.children) walk(node.children, viewSets)
     }
   }
 
+  walk(children, [])
   return result
 }
 

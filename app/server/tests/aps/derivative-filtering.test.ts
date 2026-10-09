@@ -18,7 +18,8 @@ import {
   mockSvfChild,
   mockDerivativeWithPdfs,
   mockDerivativeOldRevit,
-  mockDerivativeNoVersion
+  mockDerivativeNoVersion,
+  mockNestedViewableFolderChildren
 } from '../fixtures/manifest'
 
 describe('filterPdfDerivatives', () => {
@@ -208,6 +209,41 @@ describe('filterDerivatives (all formats)', () => {
     const svf = result.find(d => d.format === 'svf')
     expect(svf).toBeDefined()
     expect(svf!.name).toBe('model.svf')
+  })
+})
+
+describe('filterDerivatives (folder-nested manifest)', () => {
+  it('finds pdf-page sheets nested under folder nodes', () => {
+    const result = filterDerivatives(mockNestedViewableFolderChildren, ['pdf'])
+    expect(result.map(d => d.name)).toEqual([
+      'G-000 - COVER SHEET',
+      'A-400 - ENLARGED - L65 EXISTING RESTROOM'
+    ])
+    expect(result.every(d => d.active)).toBe(true)
+  })
+
+  it('normalizes ViewSets on nested sheets (string and string[])', () => {
+    const result = filterDerivatives(mockNestedViewableFolderChildren, ['pdf'])
+    expect(result[0].viewSets).toEqual(['100 DD SET ', 'BULLETIN #5'])
+    expect(result[1].viewSets).toEqual(['BULLETIN #5'])
+  })
+
+  it('finds deeply nested svf resources and inherits ViewSets from the geometry node', () => {
+    const result = filterDerivatives(mockNestedViewableFolderChildren)
+    const svf = result.find(d => d.format === 'svf')
+    expect(svf!.name).toBe('BIM360.svf')
+    expect(svf!.viewSets).toEqual(['BIM360 PUBLISHED VIEWS'])
+    expect(svf!.active).toBe(false)
+  })
+
+  it('still returns top-level resources alongside nested ones', () => {
+    const result = filterDerivatives(mockNestedViewableFolderChildren)
+    expect(result.map(d => d.format)).toEqual(['sdb', 'aec', 'svf', 'pdf', 'pdf'])
+  })
+
+  it('does not emit the same URN twice', () => {
+    const result = filterDerivatives([mock3dChild])
+    expect(result.filter(d => d.format === 'svf')).toHaveLength(1)
   })
 })
 

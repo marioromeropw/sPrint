@@ -141,3 +141,79 @@ export const mockManifestOldRevit: ApsManifest = {
   urn: 'dXJuOmFkc2sud2lwcHJvZDpmcy5maWxlOnZmLmdoaTc4OQ',
   derivatives: [mockDerivativeOldRevit]
 }
+
+// Folder-nested layout (Revit 2026 publish): viewable folder → "Sheets" / "Views" folders → geometry nodes.
+// ViewSets appears as a string or string[] on geometry nodes; resources carry no ViewSets of their own.
+export const mockNestedSheetsFolder: ApsManifestChild = {
+  guid: 'guid-sheets-folder',
+  name: 'Sheets',
+  role: 'viewable',
+  children: [
+    {
+      guid: 'guid-g000',
+      name: 'G-000 - COVER SHEET',
+      role: '2d',
+      ViewSets: ['100 DD SET ', 'BULLETIN #5'],
+      children: [
+        {
+          guid: 'guid-g000-pdf',
+          name: '',
+          role: 'pdf-page',
+          urn: 'urn:adsk.viewing:fs.file:abc/output/Resource/Sheet/g000/pdf/G-000 - COVER SHEET.pdf'
+        },
+        { guid: 'guid-g000-view', name: 'G-000 - COVER SHEET', role: '2d' }
+      ]
+    },
+    {
+      guid: 'guid-a400',
+      name: 'A-400 - ENLARGED - L65 EXISTING RESTROOM',
+      role: '2d',
+      ViewSets: 'BULLETIN #5',
+      children: [
+        {
+          guid: 'guid-a400-pdf',
+          name: '',
+          role: 'pdf-page',
+          urn: 'urn:adsk.viewing:fs.file:abc/output/Resource/Sheet/a400/pdf/A-400 - ENLARGED - L65 EXISTING RESTROOM.pdf'
+        }
+      ]
+    }
+  ]
+}
+
+export const mockNestedViewsFolder: ApsManifestChild = {
+  guid: 'guid-views-folder',
+  name: 'Views',
+  role: '',
+  children: [
+    {
+      guid: 'guid-3d-view-folder',
+      name: '3D View',
+      role: '',
+      children: [
+        {
+          guid: 'guid-bim360',
+          name: 'BIM360',
+          role: '3d',
+          ViewSets: 'BIM360 PUBLISHED VIEWS',
+          children: [
+            { guid: 'guid-bim360-view', name: 'BIM360', role: '3d' },
+            {
+              guid: 'guid-bim360-svf',
+              name: '',
+              role: 'graphics',
+              urn: 'urn:adsk.viewing:fs.file:abc/output/Resource/3D View/bim360/BIM360.svf'
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+export const mockNestedViewableFolderChildren: ApsManifestChild[] = [
+  mockSdbChild,
+  mockAecChild,
+  mockNestedViewsFolder,
+  mockNestedSheetsFolder
+]
